@@ -41,7 +41,17 @@
       "Bash(python3 -c ':*)",
       "Bash(curl -s -X POST http://localhost:3000/api/sprint/generate -H 'Content-Type: application/json' -d '{\"child\":{\"name\":\"דוד\",\"age\":10,\"city\":\"תל אביב\",\"gender\":\"זכר\",\"interests\":[\"Minecraft\",\"כדורגל\"],\"active_subjects\":[\"math\",\"hebrew\",\"finance\",\"torah\",\"ai_tech\",\"english\"],\"weak_areas\":[],\"streak_days\":0,\"sprint_count_today\":0}}')",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m 'Initial commit: Champions Mission full-stack app:*)",
+      "Bash(gh auth:*)",
+      "Bash(brew install:*)",
+      "Bash(gh --version)",
+      "Bash(/usr/local/bin/gh auth:*)",
+      "Read(//Users/wix/.config/gh/**)",
+      "Bash(npm list:*)",
+      "Bash(railway version:*)",
+      "Bash(railway --version)",
+      "Bash(gh repo:*)"
     ]
   }
 }
