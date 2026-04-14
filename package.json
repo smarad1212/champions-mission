@@ -1,0 +1,28 @@
+{
+  "name": "champions-mission",
+  "version": "1.0.0",
+  "description": "Personalized gamified learning app for Israeli kids aged 7-14",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev:client": "cd client && npm run dev",
+    "build": "tsc && cd client && npm run build",
+    "build:client": "cd client && npm run build",
+    "start": "node dist/index.js",
+    "migrate": "ts-node src/db/migrate.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.24.1",
+    "@types/pg": "^8.20.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,56 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body { background: #0F0C29; }
+
+button { font-family: inherit; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-80px) scale(1.4); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
