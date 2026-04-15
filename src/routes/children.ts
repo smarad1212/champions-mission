@@ -36,13 +36,11 @@ router.post('/', async (req: Request, res: Response) => {
 // GET /api/children — list all children
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM children ORDER BY created_at DESC'
-    )
-    res.json(rows)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    res.status(500).json({ error: msg })
+    const result = await pool.query('SELECT * FROM children ORDER BY created_at DESC')
+    res.json(result.rows)
+  } catch (error) {
+    console.error('GET /api/children error:', error)
+    res.status(500).json({ error: String(error) })
   }
 })
 
