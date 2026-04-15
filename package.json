@@ -4,7 +4,7 @@
   "description": "Personalized gamified learning app for Israeli kids aged 7-14",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc --skipLibCheck",
+    "build": "tsc --skipLibCheck && cd client && npm install && npm run build",
     "build:backend": "tsc --skipLibCheck",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn src/index.ts"
