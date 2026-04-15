@@ -34,12 +34,6 @@ app.get("/api/config", (_req, res) => {
 app.use("/api/sprint", sprintRouter);
 app.use("/api/children", childrenRouter);
 
-// Serve React web app (production build — only when client dist exists)
-const clientDist = path.resolve(__dirname, "../dist/client");
-app.use(express.static(clientDist));
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(clientDist, "index.html"));
-});
 
 app.listen(PORT, () => {
   console.log(`Champions Mission API + Web running on port ${PORT}`);
