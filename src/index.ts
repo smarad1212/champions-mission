@@ -10,11 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://smarad1212.github.io',
-  ],
-  credentials: true,
+  origin: '*',
 }));
 
 app.use(express.json());

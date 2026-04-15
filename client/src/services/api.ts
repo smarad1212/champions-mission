@@ -1,6 +1,7 @@
 import type { ChildProfile, SprintContent } from '../types'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+console.log('API_BASE:', BASE)
 
 export async function getAllChildren(): Promise<ChildProfile[]> {
   const res = await fetch(`${BASE}/api/children`)
