@@ -3,7 +3,9 @@ import { COLORS, GRADIENT } from '../theme'
 import { useApp } from '../context/AppContext'
 import type { SprintContent } from '../types'
 import { SoundFX } from '../services/sounds'
-import { updateProgress, generateSprint } from '../services/api'
+import { updateProgress, generateSprint, getChild } from '../services/api'
+import { getLevel, getNextLevel, getProgressToNext } from '../data/levels'
+import HomeButton from '../components/HomeButton'
 
 const CONFETTI_COLORS = ['#FFD700', '#4ade80', '#60a5fa', '#f87171', '#a78bfa', '#fb923c']
 const DOTS = Array.from({ length: 30 }, (_, i) => ({
@@ -16,18 +18,19 @@ const DOTS = Array.from({ length: 30 }, (_, i) => ({
 interface Props {
   sprint: SprintContent
   onNextSprint: () => void
+  onGoHome: () => void
 }
 
-export default function SummaryScreen({ sprint, onNextSprint }: Props) {
-  const { state, addXP, setNextSprint, setPreloading } = useApp()
+export default function SummaryScreen({ sprint, onNextSprint, onGoHome }: Props) {
+  const { state, setNextSprint, setPreloading, triggerCelebration, setChild } = useApp()
   const { sprintXPEarned, streak, child, correctAnswers, wrongAnswers } = state
   const [displayXP, setDisplayXP] = useState(0)
-  const [showModal, setShowModal] = useState(false)
-  const [showContinueBonus, setShowContinueBonus] = useState(false)
   const [continuing, setContinuing] = useState(false)
   const savedRef = useRef(false)
+  // Guards generateSprint against stale-closure double-fire
+  const preloadStartedRef = useRef(false)
 
-  // Step 1: Save progress + Step 2: start preload with updated child
+  // Save progress to DB (including +40 sprint bonus), then refresh child and preload next sprint
   useEffect(() => {
     if (!child || savedRef.current) return
     savedRef.current = true
@@ -51,21 +54,32 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
       ...child.recent_concepts.filter(c => c !== concept),
     ].slice(0, 10)
 
-    // Save progress first, then preload with fresh child data
+    // +40 sprint bonus included in DB save so it's never lost
+    const newTotalXP = (child.total_xp || 0) + sprintXPEarned + 40
+
     updateProgress(child.id, {
-      total_xp: child.total_xp + sprintXPEarned,
+      total_xp: newTotalXP,
       streak_days: child.streak_days,
-      sprint_count_today: child.sprint_count_today + 1,
+      sprint_count_today: (child.sprint_count_today || 0) + 1,
       xp_multiplier: child.xp_multiplier,
       weak_areas: newWeakAreas,
       subject_last_seen: newSubjectLastSeen,
       recent_concepts: newRecentConcepts,
     })
-      .then(updatedChild => {
-        // Step 2: start preload with UPDATED child profile
-        if (state.nextSprint || state.isPreloading) return
+      .then(async () => {
+        // Refresh child in context so next sprint saves with correct base XP
+        try {
+          const freshChild = await getChild(child.id)
+          setChild(freshChild)
+        } catch {
+          // Non-critical — continue without refresh
+        }
+
+        // Preload next sprint with a sync ref guard (avoids stale-closure double-fire)
+        if (preloadStartedRef.current) return
+        preloadStartedRef.current = true
         setPreloading(true)
-        return generateSprint(updatedChild)
+        return generateSprint(child)
           .then(({ sprint: next, sprint_id }) => {
             setNextSprint(next, sprint_id)
           })
@@ -75,8 +89,9 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
           })
       })
       .catch(() => {
-        // Progress save failed — try preload with current child anyway
-        if (state.nextSprint || state.isPreloading) return
+        // Progress save failed — preload with current child anyway
+        if (preloadStartedRef.current) return
+        preloadStartedRef.current = true
         setPreloading(true)
         generateSprint(child)
           .then(({ sprint: next, sprint_id }) => setNextSprint(next, sprint_id))
@@ -98,23 +113,24 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
     return () => clearInterval(iv)
   }, [sprintXPEarned])
 
+  // Sprint bonus was already saved on mount — just trigger celebration and navigate
   const handleNextSprint = () => {
     if (continuing) return
     setContinuing(true)
-    addXP(40)
+    triggerCelebration({ type: 'sprint_complete', xp: 40 })
     SoundFX.continueBonus()
-    setShowContinueBonus(true)
-
     setTimeout(() => {
-      setShowContinueBonus(false)
       onNextSprint()
-    }, 900)
+    }, 2100)
   }
 
   const childName = child?.name ?? ''
 
   return (
-    <div style={{ ...styles.screen, background: GRADIENT }}>
+    <div className="screen-enter" style={{ ...styles.screen, background: GRADIENT }}>
+
+      <HomeButton onConfirm={onGoHome} />
+
       {/* Confetti */}
       {DOTS.map((d, i) => (
         <div key={i} style={{
@@ -125,10 +141,6 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
         }} />
       ))}
 
-      {showContinueBonus && (
-        <div style={styles.continueFloat}>+40 XP בונוס המשך! 🔥</div>
-      )}
-
       <div style={{ zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%', maxWidth: 480 }}>
         <div style={{ fontSize: 80, filter: 'drop-shadow(0 0 20px #ffd700)', animation: 'bounceIn 0.5s cubic-bezier(.34,1.56,.64,1)' }}>🏆</div>
 
@@ -138,6 +150,35 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
           <span style={styles.xpNum}>{displayXP}</span>
           <span style={styles.xpLabel}>XP הרווחת</span>
         </div>
+
+        {/* Level display */}
+        {(() => {
+          const lv = getLevel(state.totalXP)
+          const next = getNextLevel(state.totalXP)
+          const pct = getProgressToNext(state.totalXP)
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 36 }}>{lv.trophy}</span>
+                <span style={{ color: lv.color, fontSize: 22, fontWeight: 900 }}>{lv.title}</span>
+              </div>
+              {next && (
+                <div style={{ width: '100%', maxWidth: 280 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{lv.title}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{next.title}</span>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 99, height: 8, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 99, background: lv.color, width: `${pct}%`, transition: 'width 1s ease' }} />
+                  </div>
+                </div>
+              )}
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: 0 }}>
+                צברת {state.sessionXP} נקודות בסשן הזה
+              </p>
+            </div>
+          )
+        })()}
 
         <div style={styles.streakPill}>🔥 רצף {streak} ימים</div>
 
@@ -163,11 +204,10 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
 
         <div style={styles.actions}>
           <button
+            className="game-btn"
             style={{
               ...styles.primaryBtn,
-              ...(state.isPreloading && !state.nextSprint
-                ? { opacity: 0.85 }
-                : {}),
+              ...(state.isPreloading && !state.nextSprint ? { opacity: 0.85 } : {}),
             }}
             onClick={handleNextSprint}
             disabled={continuing}
@@ -178,18 +218,8 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
               ? 'מכין ספרינט... ⏳'
               : 'ספרינט נוסף! ⚡'}
           </button>
-          <button style={styles.secondaryBtn} onClick={() => setShowModal(true)}>פדה XP 💰</button>
         </div>
       </div>
-
-      {showModal && (
-        <div style={styles.overlay} onClick={() => setShowModal(false)}>
-          <div style={styles.modal} onClick={e => e.stopPropagation()}>
-            <p style={styles.modalText}>1000 XP = 30 דקות זמן מסך 📱</p>
-            <button style={styles.modalClose} onClick={() => setShowModal(false)}>סגור</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -197,16 +227,8 @@ export default function SummaryScreen({ sprint, onNextSprint }: Props) {
 const styles: Record<string, React.CSSProperties> = {
   screen: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    minHeight: '100dvh', padding: '60px 20px 32px', gap: 0,
-    position: 'relative', overflow: 'hidden',
-  },
-  continueFloat: {
-    position: 'fixed', top: '35%', left: '50%',
-    transform: 'translateX(-50%)',
-    color: COLORS.green, fontSize: 28, fontWeight: 'bold',
-    animation: 'floatUp 1s ease forwards', zIndex: 50,
-    whiteSpace: 'nowrap', direction: 'rtl',
-    textShadow: '0 0 12px rgba(74,222,128,0.6)',
+    minHeight: '100dvh', padding: '60px 20px 40px', gap: 0,
+    position: 'relative',
   },
   congrats: {
     color: COLORS.yellow, fontSize: 'clamp(24px,6vw,32px)',
@@ -246,28 +268,5 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 999, minHeight: 64, fontSize: 20, fontWeight: 'bold',
     cursor: 'pointer', boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
     fontFamily: 'inherit', transition: 'opacity 0.2s',
-  },
-  secondaryBtn: {
-    background: 'rgba(255,255,255,0.12)', color: COLORS.whiteAlpha80,
-    border: 'none', borderRadius: 999, minHeight: 56, fontSize: 18,
-    cursor: 'pointer', fontFamily: 'inherit',
-  },
-  overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-  },
-  modal: {
-    background: '#302B63', borderRadius: 24, padding: '32px 28px',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24,
-    maxWidth: 340, margin: '0 20px',
-  },
-  modalText: {
-    color: COLORS.white, fontSize: 20, direction: 'rtl',
-    textAlign: 'center', margin: 0, fontWeight: 'bold',
-  },
-  modalClose: {
-    background: COLORS.blue, color: COLORS.white, border: 'none',
-    borderRadius: 999, padding: '12px 32px', fontSize: 17,
-    cursor: 'pointer', fontFamily: 'inherit',
   },
 }

@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext'
 import type { Question, SprintContent } from '../types'
 import { SoundFX } from '../services/sounds'
 import { submitAnswer } from '../services/api'
+import HomeButton from '../components/HomeButton'
+import { getLevel } from '../data/levels'
 
 const PRAISE_TEMPLATES = [
   'מטורף! 🔥',
@@ -20,14 +22,6 @@ function getPraise(name: string) {
   return t.replace('{name}', name || 'אלוף')
 }
 
-const CONFETTI_COLORS = ['#FFD700', '#4ade80', '#60a5fa', '#f87171', '#a78bfa', '#fb923c']
-const CONFETTI_DOTS = Array.from({ length: 30 }, (_, i) => ({
-  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-  left: `${Math.random() * 100}%`,
-  delay: `${Math.random() * 0.3}s`,
-  size: `${8 + Math.random() * 8}px`,
-}))
-
 interface FloatXP { id: number; amount: number }
 
 interface Props {
@@ -35,10 +29,11 @@ interface Props {
   questionIndex: number
   onNext: () => void
   onAllDone: () => void
+  onGoHome: () => void
 }
 
-export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDone }: Props) {
-  const { state, addXP, markCorrect, markWrong, incrementQuestionStreak, resetQuestionStreak, disableOption } = useApp()
+export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDone, onGoHome }: Props) {
+  const { state, addXP, markCorrect, markWrong, incrementQuestionStreak, resetQuestionStreak, disableOption, doubleSessionXP } = useApp()
   const childName = state.child?.name ?? ''
   const total = sprint.questions.length
   const question: Question | undefined = sprint.questions[questionIndex]
@@ -51,10 +46,15 @@ export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDon
   const [shakingBtn, setShakingBtn] = useState<number | null>(null)
   const [floaters, setFloaters] = useState<FloatXP[]>([])
   const [praise, setPraise] = useState<string | null>(null)
-  const [showStreak, setShowStreak] = useState(false)
   const [isFirstAttempt, setIsFirstAttempt] = useState(true)
   const attemptsRef = useRef(0)
   const floaterId = useRef(0)
+  const prevXPRef = useRef(state.totalXP)
+
+  // Track XP for level-up detection (handled in AppContext addXP)
+  useEffect(() => {
+    prevXPRef.current = state.totalXP
+  }, [state.totalXP])
 
   // Reset per-question state when question changes
   useEffect(() => {
@@ -66,6 +66,9 @@ export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDon
     setFloaters([])
     attemptsRef.current = 0
   }, [questionIndex])
+
+  // Suppress unused import warning for getLevel (available for future use)
+  void getLevel
 
   const handleAnswer = (index: number) => {
     if (answeredCorrect) return
@@ -103,14 +106,9 @@ export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDon
         incrementQuestionStreak()
 
         if (newStreak === 8) {
-          addXP(80)
-          SoundFX.streak()
-          setShowStreak(true)
-          setTimeout(() => {
-            setShowStreak(false)
-            resetQuestionStreak()
-            advance()
-          }, 3000)
+          doubleSessionXP()
+          resetQuestionStreak()
+          setTimeout(advance, 1800)
           return
         }
       }
@@ -150,10 +148,7 @@ export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDon
     }
   }
 
-  const progress = ((questionIndex) / total) * 100
-  const diffLabel: Record<string, string> = {
-    easy: '⭐ קל', medium: '⭐⭐ בינוני', hard: '⭐⭐⭐ קשה', wildcard: '🃏 ווילדקארד',
-  }
+  const progress = (questionIndex / total) * 100
 
   // Progress dots
   const progressDots = Array.from({ length: total }, (_, i) => {
@@ -163,29 +158,20 @@ export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDon
   })
 
   return (
-    <div style={{ ...styles.screen, background: GRADIENT }}>
+    <div className="screen-enter" style={{ ...styles.screen, background: GRADIENT }}>
 
-      {/* 8-streak celebration overlay */}
-      {showStreak && (
-        <div style={styles.streakOverlay}>
-          {CONFETTI_DOTS.map((d, i) => (
-            <div key={i} style={{
-              position: 'absolute', left: d.left, top: '-10px',
-              width: d.size, height: d.size, borderRadius: '50%',
-              background: d.color, animationDelay: d.delay,
-              animation: 'fall 2.5s ease forwards',
-            }} />
-          ))}
-          <div style={styles.streakEmoji}>🤯</div>
-          <p style={styles.streakTitle}>8 שאלות ברצף!!</p>
-          <p style={styles.streakSub}>הניקוד הוכפל! 🚀</p>
-        </div>
-      )}
+      <HomeButton onConfirm={onGoHome} />
 
       {/* Floating XP */}
       {floaters.map(f => (
         <div key={f.id} style={styles.floatXP}>+{f.amount} XP</div>
       ))}
+
+      {/* Top bar: score+streak LEFT | question counter RIGHT */}
+      <div style={styles.topBar}>
+        <div style={styles.scorePill}>🔥 ניקוד: {state.totalXP} | רצף: {state.questionStreak}</div>
+        <div style={styles.counterPill}>שאלה {questionIndex + 1} מתוך {total}</div>
+      </div>
 
       {/* Progress dots */}
       <div style={styles.dotsRow}>
@@ -203,19 +189,16 @@ export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDon
         <div style={{ ...styles.progressFill, width: `${progress}%` }} />
       </div>
 
-      <div style={styles.counter}>שאלה {questionIndex + 1} מתוך {total}</div>
-
       {/* Question */}
       <div style={styles.questionBox}>
-        <span style={styles.difficulty}>{diffLabel[question.difficulty]}</span>
         <p style={styles.questionText}>{question.text}</p>
       </div>
 
-      {/* 2×2 grid */}
-      <div style={styles.grid}>
+      {/* Single-column answers */}
+      <div style={styles.answerList}>
         {question.options.map((opt, i) => (
-          <button key={i} style={getBtnStyle(i)} onClick={() => handleAnswer(i)}>
-            {answeredCorrect && i === question.correct_index && <span style={{ marginLeft: 6 }}>✓ </span>}
+          <button key={i} className="answer-btn game-btn" style={getBtnStyle(i)} onClick={() => handleAnswer(i)}>
+            {answeredCorrect && i === question.correct_index && <span style={{ marginLeft: 8 }}>✓</span>}
             <span style={styles.optText}>{opt}</span>
           </button>
         ))}
@@ -242,23 +225,23 @@ export default function QuestionScreen({ sprint, questionIndex, onNext, onAllDon
 const styles: Record<string, React.CSSProperties> = {
   screen: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    minHeight: '100dvh', padding: '52px 16px 24px', gap: 12,
-    position: 'relative', overflow: 'hidden',
+    minHeight: '100dvh', padding: '20px 16px 80px', gap: 14,
+    position: 'relative',
   },
-  streakOverlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
-    zIndex: 999, display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center', gap: 16,
-    overflow: 'hidden',
+  topBar: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    width: '100%', maxWidth: 520,
   },
-  streakEmoji: { fontSize: 90, animation: 'bounceIn 0.5s cubic-bezier(.34,1.56,.64,1)' },
-  streakTitle: {
-    color: COLORS.yellow, fontSize: 'clamp(32px,8vw,48px)',
-    fontWeight: 'bold', direction: 'rtl', margin: 0,
-    animation: 'pop 0.6s ease',
+  scorePill: {
+    background: 'rgba(34,197,94,0.2)', color: '#4ade80',
+    border: '1.5px solid rgba(74,222,128,0.35)',
+    borderRadius: 999, padding: '7px 16px', fontSize: 15, fontWeight: 700,
   },
-  streakSub: {
-    color: COLORS.white, fontSize: 24, direction: 'rtl', margin: 0, fontWeight: 'bold',
+  counterPill: {
+    background: 'rgba(96,165,250,0.2)', color: '#93c5fd',
+    border: '1.5px solid rgba(96,165,250,0.35)',
+    borderRadius: 999, padding: '7px 16px', fontSize: 15, fontWeight: 700,
+    direction: 'rtl',
   },
   floatXP: {
     position: 'absolute', top: '28%', left: '50%',
@@ -266,7 +249,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: COLORS.green, fontSize: 30, fontWeight: 'bold',
     animation: 'floatUp 1.2s ease forwards', zIndex: 10, pointerEvents: 'none',
   },
-  dotsRow: { display: 'flex', gap: 8, marginBottom: 4 },
+  dotsRow: { display: 'flex', gap: 8, marginBottom: 0 },
   dot: {
     width: 12, height: 12, borderRadius: '50%',
     transition: 'all 0.3s ease',
@@ -279,31 +262,28 @@ const styles: Record<string, React.CSSProperties> = {
     height: 6, background: COLORS.green, borderRadius: 999,
     transition: 'width 0.4s ease',
   },
-  counter: {
-    color: COLORS.white, fontSize: 15, fontWeight: 600,
-    direction: 'rtl', background: COLORS.whiteAlpha15,
-    padding: '5px 16px', borderRadius: 999,
-  },
   questionBox: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    gap: 8, width: '100%', maxWidth: 500,
+    gap: 6, width: '100%', maxWidth: 520,
   },
-  difficulty: { color: COLORS.yellow, fontSize: 14, fontWeight: 600 },
   questionText: {
-    color: COLORS.white, fontSize: 'clamp(19px,4.5vw,24px)', fontWeight: 'bold',
-    textAlign: 'center', direction: 'rtl', margin: 0, lineHeight: 1.5,
+    color: COLORS.white,
+    fontSize: 'clamp(22px, 5vw, 28px)',
+    fontWeight: 900,
+    textAlign: 'center', direction: 'rtl', margin: 0, lineHeight: 1.45,
   },
-  grid: {
-    display: 'grid', gridTemplateColumns: '1fr 1fr',
-    gap: 10, width: '100%', maxWidth: 500,
+  answerList: {
+    display: 'flex', flexDirection: 'column',
+    gap: 12, width: '100%', maxWidth: 520,
   },
   optBtn: {
-    background: COLORS.whiteAlpha15, color: COLORS.white,
-    border: '1.5px solid transparent', borderRadius: 16,
-    padding: '14px 10px', fontSize: 16,
-    minHeight: 70, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    direction: 'rtl', textAlign: 'center', transition: 'all 0.2s',
-    fontFamily: 'inherit', cursor: 'pointer',
+    background: 'rgba(255,255,255,0.12)', color: COLORS.white,
+    border: '2px solid rgba(255,255,255,0.15)', borderRadius: 18,
+    padding: '18px 22px',
+    fontSize: 18, fontWeight: 600,
+    minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+    textAlign: 'right', transition: 'all 0.2s',
+    fontFamily: 'inherit', cursor: 'pointer', width: '100%',
   },
   correct: {
     background: '#16a34a', borderColor: COLORS.green, color: COLORS.white,

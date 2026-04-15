@@ -14,6 +14,12 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "Champions Mission API" });
 });
 
+app.get("/api/config", (_req, res) => {
+  const provider = (process.env.AI_PROVIDER || "claude").toLowerCase();
+  const model = provider === "gemini" ? "Gemini 2.5 Flash" : "Claude Sonnet 4.5";
+  res.json({ provider, model });
+});
+
 app.use("/api/sprint", sprintRouter);
 app.use("/api/children", childrenRouter);
 

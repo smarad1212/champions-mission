@@ -3,6 +3,7 @@ import { COLORS, GRADIENT } from '../theme'
 import { getAllChildren, setActiveChildId } from '../services/api'
 import type { ChildProfile } from '../types'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import { getLevel, getProgressToNext, getNextLevel } from '../data/levels'
 
 const SUBJECT_LABELS: Record<string, string> = {
   math: 'מתמטיקה',
@@ -36,7 +37,7 @@ export default function HomeScreen({ onSelectChild, onAddChild }: Props) {
   if (loading) return <LoadingSpinner message="טוען אלופים..." />
 
   return (
-    <div style={{ ...styles.screen, background: GRADIENT }}>
+    <div className="screen-enter" style={{ ...styles.screen, background: GRADIENT }}>
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.logo}>🏆</div>
@@ -52,7 +53,7 @@ export default function HomeScreen({ onSelectChild, onAddChild }: Props) {
       )}
 
       {/* Children list */}
-      <div style={styles.list}>
+      <div className="children-list" style={styles.list}>
         {children.length === 0 && !error ? (
           <div style={styles.emptyState}>
             <div style={{ fontSize: 64 }}>🌟</div>
@@ -63,11 +64,9 @@ export default function HomeScreen({ onSelectChild, onAddChild }: Props) {
           children.map((child, idx) => (
             <button
               key={child.id}
+              className="game-btn"
               style={styles.card}
-              onClick={() => {
-                setActiveChildId(child.id)
-                onSelectChild(child)
-              }}
+              onClick={() => { setActiveChildId(child.id); onSelectChild(child) }}
             >
               <div style={styles.avatar}>{AVATARS[idx % AVATARS.length]}</div>
               <div style={styles.cardInfo}>
@@ -75,35 +74,58 @@ export default function HomeScreen({ onSelectChild, onAddChild }: Props) {
                 <div style={styles.cardMeta}>גיל {child.age} • {child.city}</div>
                 <div style={styles.cardSubjects}>
                   {child.active_subjects.slice(0, 3).map(s => (
-                    <span key={s} style={styles.subjectTag}>
-                      {SUBJECT_LABELS[s] ?? s}
-                    </span>
+                    <span key={s} style={styles.subjectTag}>{SUBJECT_LABELS[s] ?? s}</span>
                   ))}
+                </div>
+                {/* Level progress bar */}
+                <div style={{ marginTop: 6, width: '100%' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 99, height: 4, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 99,
+                      background: getLevel(child.total_xp).color,
+                      width: `${getProgressToNext(child.total_xp)}%`,
+                      transition: 'width 0.5s ease',
+                    }} />
+                  </div>
                 </div>
               </div>
               <div style={styles.cardRight}>
-                <div style={styles.xpBadge}>⚡ {child.total_xp} XP</div>
-                <div style={styles.streakBadge}>🔥 {child.streak_days}</div>
+                {/* Level badge */}
+                <div style={{ fontSize: 22 }}>{getLevel(child.total_xp).trophy}</div>
+                <div style={{ color: getLevel(child.total_xp).color, fontSize: 12, fontWeight: 700 }}>
+                  {getLevel(child.total_xp).title}
+                </div>
+                <div style={{ ...styles.xpBadge, marginTop: 4 }}>⚡ {child.total_xp} XP</div>
+                <div
+                  className={child.streak_days > 3 ? 'streak-pulse' : ''}
+                  style={styles.streakBadge}
+                >
+                  🔥 {child.streak_days}
+                </div>
               </div>
             </button>
           ))
         )}
       </div>
 
-      {/* Add child button */}
-      <button style={styles.addBtn} onClick={onAddChild}>
-        + הוסף ילד
-      </button>
+      {/* Add child button — sticky at bottom */}
+      <div className="sticky-bottom" style={{ padding: '12px 16px max(16px, env(safe-area-inset-bottom))' }}>
+        <button style={styles.addBtn} onClick={onAddChild}>
+          + הוסף ילד
+        </button>
+      </div>
     </div>
   )
 }
+
+// Suppress unused import warning for getNextLevel (used via getProgressToNext internally)
+void getNextLevel
 
 const styles: Record<string, React.CSSProperties> = {
   screen: {
     minHeight: '100dvh',
     display: 'flex',
     flexDirection: 'column',
-    padding: '0 0 32px',
   },
   header: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -126,7 +148,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15, textAlign: 'center',
   },
   list: {
-    flex: 1, overflowY: 'auto', padding: '16px',
+    padding: '16px',
     display: 'flex', flexDirection: 'column', gap: 12,
   },
   emptyState: {
@@ -171,11 +193,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 99, padding: '4px 10px', fontSize: 13, fontWeight: 600,
   },
   addBtn: {
-    margin: '0 16px',
     background: '#22c55e', color: COLORS.white, border: 'none',
-    borderRadius: 999, minHeight: 60, fontSize: 20,
+    borderRadius: 999, minHeight: 60, fontSize: 20, width: '100%',
     fontWeight: 'bold', cursor: 'pointer',
     boxShadow: '0 4px 24px rgba(34,197,94,0.35)',
-    direction: 'rtl',
+    direction: 'rtl', fontFamily: 'inherit',
   },
 }

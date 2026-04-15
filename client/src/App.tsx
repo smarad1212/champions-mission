@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import ModelBadge from './components/ModelBadge'
+import XPCelebration from './components/XPCelebration'
 import './index.css'
 import { AppProvider, useApp } from './context/AppContext'
 import type { ChildProfile, SprintContent } from './types'
@@ -21,6 +23,8 @@ function Navigator() {
   const [activeChild, setActiveChild] = useState<ChildProfile | null>(null)
   const [sprint, setSp] = useState<SprintContent | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Prevents fetchAndNavigate from firing twice on the same loading screen
+  const fetchingRef = useRef(false)
 
   const handleChildSelected = (child: ChildProfile) => {
     setChild(child)
@@ -51,8 +55,10 @@ function Navigator() {
 
   const handleErrorRetry = () => setScreen('home')
 
-  // Fetch a fresh sprint and go to lesson (fallback)
+  // Fetch a fresh sprint and go to lesson (fallback) — guarded against double calls
   const fetchAndNavigate = useCallback(async () => {
+    if (fetchingRef.current) return
+    fetchingRef.current = true
     try {
       const child = state.child
       if (!child) { setScreen('error'); return }
@@ -63,6 +69,8 @@ function Navigator() {
       setScreen('lesson')
     } catch {
       setScreen('error')
+    } finally {
+      fetchingRef.current = false
     }
   }, [state.child, setSprint])
 
@@ -70,6 +78,7 @@ function Navigator() {
   useEffect(() => {
     if (screen !== 'loading') {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+      fetchingRef.current = false
       return
     }
 
@@ -163,7 +172,9 @@ function Navigator() {
 
   if (!sprint) return <LoadingScreen />
 
-  if (screen === 'lesson') return <LessonScreen sprint={sprint} onNext={handleLessonNext} />
+  if (screen === 'lesson') return (
+    <LessonScreen sprint={sprint} onNext={handleLessonNext} onGoHome={() => setScreen('home')} />
+  )
 
   if (screen === 'question') return (
     <QuestionScreen
@@ -171,11 +182,12 @@ function Navigator() {
       questionIndex={state.currentQuestionIndex}
       onNext={handleQuestionNext}
       onAllDone={() => setScreen('summary')}
+      onGoHome={() => setScreen('home')}
     />
   )
 
   if (screen === 'summary') return (
-    <SummaryScreen sprint={sprint} onNextSprint={handleNextSprint} />
+    <SummaryScreen sprint={sprint} onNextSprint={handleNextSprint} onGoHome={() => setScreen('home')} />
   )
 
   return <LoadingScreen />
@@ -184,7 +196,11 @@ function Navigator() {
 export default function App() {
   return (
     <AppProvider>
-      <Navigator />
+      <div className="app-container">
+        <ModelBadge />
+        <XPCelebration />
+        <Navigator />
+      </div>
     </AppProvider>
   )
 }

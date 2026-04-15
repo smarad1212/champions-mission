@@ -7,7 +7,7 @@ html, body, #root {
   overscroll-behavior: none;
 }
 
-body { background: #0F0C29; }
+body { background: #0F0C29; margin: 0; overflow-x: hidden; overflow-y: auto; }
 
 button { font-family: inherit; }
 
@@ -53,4 +53,120 @@ button { font-family: inherit; }
 @keyframes confettiFall {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* === GAMIFICATION UI === */
+
+/* Prevent tap highlight, no text select */
+* { -webkit-tap-highlight-color: transparent; user-select: none; }
+
+/* Layout */
+html { height: 100%; scroll-behavior: smooth; }
+body { min-height: 100%; }
+#root { min-height: 100vh; }
+
+/* Responsive app container — mobile-first, centered on desktop */
+.app-container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Sticky bottom button — fades in over screen gradient */
+.sticky-bottom {
+  position: sticky;
+  bottom: 0;
+  width: 100%;
+  padding: 12px 0 max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(15,12,41,1) 65%, transparent);
+  margin-top: auto;
+}
+
+/* Children list with internal scroll on tall lists */
+.children-list {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+  padding-bottom: 80px;
+}
+
+/* Answer buttons always grow with content */
+.answer-btn {
+  height: auto !important;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Desktop: background frame around the app */
+@media (min-width: 768px) {
+  body {
+    background: linear-gradient(135deg, #0a0820 0%, #1a1535 50%, #0f0c29 100%);
+  }
+  .app-container {
+    box-shadow: 0 0 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.07);
+  }
+}
+
+/* Game button press */
+.game-btn {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  cursor: pointer;
+}
+.game-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Answer button */
+.answer-btn {
+  transition: all 0.15s ease;
+}
+.answer-btn:active { transform: scale(0.97); }
+
+/* Screen enter animation */
+.screen-enter {
+  animation: screenSlideUp 0.3s ease-out;
+}
+@keyframes screenSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Pulsing streak */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255,107,53,0.4); }
+  50%       { box-shadow: 0 0 22px rgba(255,107,53,0.9); }
+}
+.streak-pulse { animation: pulseGlow 2s ease-in-out infinite; }
+
+/* XP Celebration animations */
+@keyframes scaleIn {
+  0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(3deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes xpBounce {
+  0%   { transform: scale(0); opacity: 0; }
+  50%  { transform: scale(1.35); opacity: 1; }
+  80%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+@keyframes flashOrange {
+  0%, 100% { opacity: 0; }
+  25%, 75%  { opacity: 0.65; }
+}
+@keyframes flameFall {
+  0%   { transform: translateY(-40px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(30deg); opacity: 0; }
+}
+@keyframes xpCountUp {
+  from { transform: scale(1); }
+  50%  { transform: scale(1.15); color: #FFD700; }
+  to   { transform: scale(1); }
+}
+@keyframes slideDown {
+  from { transform: translateY(-20px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }

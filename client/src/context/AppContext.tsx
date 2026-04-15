@@ -1,6 +1,8 @@
 import { createContext, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ChildProfile, SprintContent } from '../types'
+import { getLevel } from '../data/levels'
+import type { CelebrationEvent } from '../types/celebrations'
 
 interface AppState {
   child: ChildProfile | null
@@ -18,6 +20,9 @@ interface AppState {
   sprintXPEarned: number
   disabledOptions: number[]
   lastSubject: string
+  sessionXP: number
+  streakMultiplied: boolean
+  pendingCelebration: CelebrationEvent | null
 }
 
 interface AppContextType {
@@ -36,6 +41,10 @@ interface AppContextType {
   disableOption: (index: number) => void
   clearDisabledOptions: () => void
   resetSprint: () => void
+  doubleSessionXP: () => void
+  triggerCelebration: (event: CelebrationEvent) => void
+  dismissCelebration: () => void
+  setStreakMultiplied: (val: boolean) => void
 }
 
 const defaultState: AppState = {
@@ -54,6 +63,9 @@ const defaultState: AppState = {
   sprintXPEarned: 0,
   disabledOptions: [],
   lastSubject: '',
+  sessionXP: 0,
+  streakMultiplied: false,
+  pendingCelebration: null,
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -99,11 +111,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }))
 
   const addXP = (amount: number) =>
-    setState(s => ({
-      ...s,
-      totalXP: s.totalXP + amount,
-      sprintXPEarned: s.sprintXPEarned + amount,
-    }))
+    setState(s => {
+      const prevLevel = getLevel(s.totalXP)
+      const newTotalXP = s.totalXP + amount
+      const newLevel = getLevel(newTotalXP)
+      const leveledUp = newLevel.level > prevLevel.level
+
+      const newPendingCelebration: CelebrationEvent | null =
+        leveledUp && !s.pendingCelebration
+          ? { type: 'level_up', newLevel }
+          : s.pendingCelebration
+
+      return {
+        ...s,
+        totalXP: newTotalXP,
+        sprintXPEarned: s.sprintXPEarned + amount,
+        sessionXP: s.sessionXP + amount,
+        pendingCelebration: newPendingCelebration,
+      }
+    })
 
   const markCorrect = () =>
     setState(s => ({ ...s, correctAnswers: s.correctAnswers + 1 }))
@@ -135,12 +161,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
       currentSprintId: null,
     }))
 
+  const doubleSessionXP = () =>
+    setState(s => {
+      const newTotalXP = s.totalXP + s.sessionXP
+      const newSprintXPEarned = s.sprintXPEarned + s.sessionXP
+      const celebration: CelebrationEvent = {
+        type: 'double_xp',
+        sessionXP: s.sessionXP,
+        newTotal: newTotalXP,
+      }
+      return {
+        ...s,
+        totalXP: newTotalXP,
+        sprintXPEarned: newSprintXPEarned,
+        streakMultiplied: true,
+        pendingCelebration: celebration,
+      }
+    })
+
+  const triggerCelebration = (event: CelebrationEvent) =>
+    setState(s => ({ ...s, pendingCelebration: event }))
+
+  const dismissCelebration = () =>
+    setState(s => ({ ...s, pendingCelebration: null }))
+
+  const setStreakMultiplied = (val: boolean) =>
+    setState(s => ({ ...s, streakMultiplied: val }))
+
   return (
     <AppContext.Provider value={{
       state, setChild, setSprint, setNextSprint, setPreloading, clearNextSprint,
       advanceQuestion, addXP, markCorrect, markWrong,
       incrementQuestionStreak, resetQuestionStreak,
       disableOption, clearDisabledOptions, resetSprint,
+      doubleSessionXP, triggerCelebration, dismissCelebration, setStreakMultiplied,
     }}>
       {children}
     </AppContext.Provider>
