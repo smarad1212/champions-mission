@@ -4,12 +4,10 @@
   "description": "Personalized gamified learning app for Israeli kids aged 7-14",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "dev:client": "cd client && npm run dev",
-    "build": "tsc && cd client && npm run build",
-    "build:client": "cd client && npm run build",
+    "build": "tsc --skipLibCheck",
+    "build:backend": "tsc --skipLibCheck",
     "start": "node dist/index.js",
-    "migrate": "ts-node src/db/migrate.ts"
+    "dev": "ts-node-dev --respawn src/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
