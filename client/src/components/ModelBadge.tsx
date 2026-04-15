@@ -14,7 +14,8 @@ export default function ModelBadge() {
   const [config, setConfig] = useState<Config | null>(null)
 
   useEffect(() => {
-    fetch('/api/config')
+    const base = import.meta.env.VITE_API_URL || ''
+    fetch(`${base}/api/config`)
       .then(r => r.json())
       .then(setConfig)
       .catch(() => {})
