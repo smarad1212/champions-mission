@@ -2,11 +2,22 @@ import dotenv from "dotenv";
 import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../.env"), override: true });
 import express from "express";
+import cors from "cors";
 import sprintRouter from "./routes/sprint";
 import childrenRouter from "./routes/children";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://champions-mission.vercel.app',
+    /\.vercel\.app$/,
+  ],
+  credentials: true,
+}));
 
 app.use(express.json());
 
@@ -23,7 +34,7 @@ app.get("/api/config", (_req, res) => {
 app.use("/api/sprint", sprintRouter);
 app.use("/api/children", childrenRouter);
 
-// Serve React web app (production build)
+// Serve React web app (production build — only when client dist exists)
 const clientDist = path.resolve(__dirname, "../dist/client");
 app.use(express.static(clientDist));
 app.get("*", (_req, res) => {

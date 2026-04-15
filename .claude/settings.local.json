@@ -51,7 +51,11 @@
       "Bash(npm list:*)",
       "Bash(railway version:*)",
       "Bash(railway --version)",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(curl -s http://localhost:3000/api/config)",
+      "Bash(curl -s -X POST http://localhost:3000/api/sprint/generate -H 'Content-Type: application/json' -d '{\"child\":{\"id\":\"test\",\"name\":\"רני\",\"age\":8,\"gender\":\"זכר\",\"interests\":[\"כדורגל\"],\"active_subjects\":[\"math\"],\"adhd_mode\":false,\"weak_areas\":[],\"subject_last_seen\":{},\"recent_concepts\":[],\"sprint_count_today\":0,\"xp\":0,\"streak\":0,\"level\":1}}')"
     ]
   }
 }

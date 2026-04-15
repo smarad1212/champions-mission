@@ -1,7 +1,6 @@
 import type { ChildProfile, SprintContent } from '../types'
 
-// Relative path — works with Vite proxy in dev and same-origin serving in prod
-const BASE = ''
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export async function getAllChildren(): Promise<ChildProfile[]> {
   const res = await fetch(`${BASE}/api/children`)
