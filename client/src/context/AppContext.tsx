@@ -8,9 +8,6 @@ interface AppState {
   child: ChildProfile | null
   currentSprint: SprintContent | null
   currentSprintId: string | null
-  nextSprint: SprintContent | null
-  nextSprintId: string | null
-  isPreloading: boolean
   currentQuestionIndex: number
   totalXP: number
   streak: number
@@ -29,9 +26,6 @@ interface AppContextType {
   state: AppState
   setChild: (child: ChildProfile) => void
   setSprint: (sprint: SprintContent, sprintId?: string | null) => void
-  setNextSprint: (sprint: SprintContent, sprintId?: string | null) => void
-  setPreloading: (loading: boolean) => void
-  clearNextSprint: () => void
   advanceQuestion: () => void
   addXP: (amount: number) => void
   markCorrect: () => void
@@ -51,9 +45,6 @@ const defaultState: AppState = {
   child: null,
   currentSprint: null,
   currentSprintId: null,
-  nextSprint: null,
-  nextSprintId: null,
-  isPreloading: false,
   currentQuestionIndex: 0,
   totalXP: 0,
   streak: 0,
@@ -93,15 +84,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       disabledOptions: [],
       lastSubject: sprint.lesson.subject,
     }))
-
-  const setNextSprint = (sprint: SprintContent, sprintId: string | null = null) =>
-    setState(s => ({ ...s, nextSprint: sprint, nextSprintId: sprintId, isPreloading: false }))
-
-  const setPreloading = (loading: boolean) =>
-    setState(s => ({ ...s, isPreloading: loading }))
-
-  const clearNextSprint = () =>
-    setState(s => ({ ...s, nextSprint: null, nextSprintId: null, isPreloading: false }))
 
   const advanceQuestion = () =>
     setState(s => ({
@@ -190,7 +172,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      state, setChild, setSprint, setNextSprint, setPreloading, clearNextSprint,
+      state, setChild, setSprint,
       advanceQuestion, addXP, markCorrect, markWrong,
       incrementQuestionStreak, resetQuestionStreak,
       disableOption, clearDisabledOptions, resetSprint,

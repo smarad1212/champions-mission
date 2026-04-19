@@ -4,6 +4,7 @@ import { getAllChildren, setActiveChildId } from '../services/api'
 import type { ChildProfile } from '../types'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { getLevel, getProgressToNext, getNextLevel } from '../data/levels'
+import { PrefetchService } from '../services/prefetchService'
 
 const SUBJECT_LABELS: Record<string, string> = {
   math: 'מתמטיקה',
@@ -28,6 +29,7 @@ export default function HomeScreen({ onSelectChild, onAddChild }: Props) {
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    PrefetchService.clear()
     getAllChildren()
       .then(setChildren)
       .catch(() => setError(true))

@@ -3,6 +3,7 @@ import { COLORS, GRADIENT } from '../theme'
 import { useApp } from '../context/AppContext'
 import type { SprintContent } from '../types'
 import HomeButton from '../components/HomeButton'
+import { PrefetchService } from '../services/prefetchService'
 
 const SUBJECT_EMOJI: Record<string, string> = {
   math: '🔢', hebrew: '📖', english: '🌍',
@@ -17,6 +18,15 @@ export default function LessonScreen({ sprint, onNext, onGoHome }: Props) {
   const { lesson } = sprint
 
   useEffect(() => { setTimeout(() => setVisible(true), 30) }, [])
+
+  // Start prefetching next sprint after a short delay so it doesn't compete with render
+  useEffect(() => {
+    if (!state.child) return
+    const timer = setTimeout(() => {
+      PrefetchService.start(state.child!)
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="screen-enter" style={{ background: GRADIENT, minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 20px 32px', gap: 0, direction: 'rtl' }}>

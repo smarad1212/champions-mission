@@ -3,9 +3,10 @@ import { COLORS, GRADIENT } from '../theme'
 import { useApp } from '../context/AppContext'
 import type { SprintContent } from '../types'
 import { SoundFX } from '../services/sounds'
-import { updateProgress, generateSprint, getChild } from '../services/api'
+import { updateProgress, getChild } from '../services/api'
 import { getLevel, getNextLevel, getProgressToNext } from '../data/levels'
 import HomeButton from '../components/HomeButton'
+import { PrefetchService } from '../services/prefetchService'
 
 const CONFETTI_COLORS = ['#FFD700', '#4ade80', '#60a5fa', '#f87171', '#a78bfa', '#fb923c']
 const DOTS = Array.from({ length: 30 }, (_, i) => ({
@@ -17,20 +18,18 @@ const DOTS = Array.from({ length: 30 }, (_, i) => ({
 
 interface Props {
   sprint: SprintContent
-  onNextSprint: () => void
+  onNextSprint: (sprint: SprintContent, sprintId: string | null) => void
   onGoHome: () => void
 }
 
 export default function SummaryScreen({ sprint, onNextSprint, onGoHome }: Props) {
-  const { state, setNextSprint, setPreloading, triggerCelebration, setChild } = useApp()
+  const { state, triggerCelebration, setChild } = useApp()
   const { sprintXPEarned, streak, child, correctAnswers, wrongAnswers } = state
   const [displayXP, setDisplayXP] = useState(0)
   const [continuing, setContinuing] = useState(false)
   const savedRef = useRef(false)
-  // Guards generateSprint against stale-closure double-fire
-  const preloadStartedRef = useRef(false)
 
-  // Save progress to DB (including +40 sprint bonus), then refresh child and preload next sprint
+  // Save progress to DB on mount (includes +40 sprint bonus), then refresh child
   useEffect(() => {
     if (!child || savedRef.current) return
     savedRef.current = true
@@ -54,7 +53,6 @@ export default function SummaryScreen({ sprint, onNextSprint, onGoHome }: Props)
       ...child.recent_concepts.filter(c => c !== concept),
     ].slice(0, 10)
 
-    // +40 sprint bonus included in DB save so it's never lost
     const newTotalXP = (child.total_xp || 0) + sprintXPEarned + 40
 
     updateProgress(child.id, {
@@ -72,31 +70,10 @@ export default function SummaryScreen({ sprint, onNextSprint, onGoHome }: Props)
           const freshChild = await getChild(child.id)
           setChild(freshChild)
         } catch {
-          // Non-critical — continue without refresh
+          // Non-critical
         }
-
-        // Preload next sprint with a sync ref guard (avoids stale-closure double-fire)
-        if (preloadStartedRef.current) return
-        preloadStartedRef.current = true
-        setPreloading(true)
-        return generateSprint(child)
-          .then(({ sprint: next, sprint_id }) => {
-            setNextSprint(next, sprint_id)
-          })
-          .catch(e => {
-            console.warn('Post-save preload failed', e)
-            setPreloading(false)
-          })
       })
-      .catch(() => {
-        // Progress save failed — preload with current child anyway
-        if (preloadStartedRef.current) return
-        preloadStartedRef.current = true
-        setPreloading(true)
-        generateSprint(child)
-          .then(({ sprint: next, sprint_id }) => setNextSprint(next, sprint_id))
-          .catch(() => setPreloading(false))
-      })
+      .catch(err => console.warn('Progress save failed:', err))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // XP count-up animation
@@ -113,18 +90,29 @@ export default function SummaryScreen({ sprint, onNextSprint, onGoHome }: Props)
     return () => clearInterval(iv)
   }, [sprintXPEarned])
 
-  // Sprint bonus was already saved on mount — just trigger celebration and navigate
-  const handleNextSprint = () => {
+  const handleNextSprint = async () => {
     if (continuing) return
     setContinuing(true)
     triggerCelebration({ type: 'sprint_complete', xp: 40 })
     SoundFX.continueBonus()
-    setTimeout(() => {
-      onNextSprint()
-    }, 2100)
+
+    try {
+      // Use latest child from context (refreshed after save)
+      const currentChild = state.child ?? child!
+      const result = await PrefetchService.get(currentChild)
+      // Brief pause so celebration animation plays
+      setTimeout(() => {
+        onNextSprint(result.sprint, result.sprint_id)
+      }, 800)
+    } catch (e) {
+      console.error('Failed to get next sprint:', e)
+      setContinuing(false)
+    }
   }
 
   const childName = child?.name ?? ''
+  const isReady = PrefetchService.isReady()
+  const isLoadingPrefetch = PrefetchService.isLoading()
 
   return (
     <div className="screen-enter" style={{ ...styles.screen, background: GRADIENT }}>
@@ -207,14 +195,16 @@ export default function SummaryScreen({ sprint, onNextSprint, onGoHome }: Props)
             className="game-btn"
             style={{
               ...styles.primaryBtn,
-              ...(state.isPreloading && !state.nextSprint ? { opacity: 0.85 } : {}),
+              ...(!isReady && isLoadingPrefetch && !continuing ? { opacity: 0.85 } : {}),
             }}
             onClick={handleNextSprint}
             disabled={continuing}
           >
-            {state.nextSprint
+            {continuing
+              ? '⏳ טוען...'
+              : isReady
               ? 'ספרינט נוסף! ⚡'
-              : state.isPreloading
+              : isLoadingPrefetch
               ? 'מכין ספרינט... ⏳'
               : 'ספרינט נוסף! ⚡'}
           </button>
