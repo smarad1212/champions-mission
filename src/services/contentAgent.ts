@@ -73,8 +73,9 @@ export async function generateSprint(
     sprint = await callAPI(child, slot);
   }
 
-  // Attach metadata
+  // Merge model metadata (voice_used, hook_type, etc.) with server metadata
   sprint.metadata = {
+    ...(typeof sprint.metadata === "object" && sprint.metadata !== null ? sprint.metadata : {}),
     generated_at: new Date().toISOString(),
     child_id: child.id,
     difficulty: slot.difficulty,
